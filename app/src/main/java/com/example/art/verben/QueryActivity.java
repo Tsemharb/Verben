@@ -18,6 +18,7 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 
+import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ThreadLocalRandom;
@@ -33,6 +34,7 @@ public class QueryActivity extends Activity implements View.OnClickListener, Vie
     DBHelper dbHelper;
     SQLiteDatabase db;
     word[] words =  new word[10];
+    ArrayList<word> words_list = new ArrayList<>();
     int current_word_id;
     Timer timer;
     TimerTask mTimerTask;
@@ -40,6 +42,8 @@ public class QueryActivity extends Activity implements View.OnClickListener, Vie
 
 //    int id_counter = 1;
     int question = 1; // 1 - de
+    boolean end_reached = false;
+    boolean finish = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,8 +82,16 @@ public class QueryActivity extends Activity implements View.OnClickListener, Vie
         db = dbHelper.getWritableDatabase();
 
         for (int i = 0; i<words.length; i++) {
-            words[i] = get_word(i+1);
-            words[i].set_array_ind(i);
+            word transit = get_word(i+1);
+            words_list.add(transit);
+            if (transit != null){
+                words_list.get(i).set_array_ind(i);
+                System.out.println(words_list.get(i).get_de());
+            }
+
+
+//            words[i] = get_word(i+1);
+//            words[i].set_array_ind(i);
         }
 
         get_question_mode();
@@ -104,7 +116,12 @@ public class QueryActivity extends Activity implements View.OnClickListener, Vie
         word a_word = null;
 //        int id_counter = 1;
 
-        while(id_counter<=501){
+        while(id_counter<=12+1){
+            if (id_counter == 12+1){
+                end_reached = true;
+                a_word = null;
+                break;
+            }
             id_num = Integer.toString(id_counter);
             selectionArgs = new String[] {id_num};
             Cursor cur = db.query("tab", null, selection, selectionArgs, null, null, null);
@@ -119,47 +136,73 @@ public class QueryActivity extends Activity implements View.OnClickListener, Vie
                                     cur.getInt(6));
             }
 
-            if (a_word.get_status() < 5) {
-                id_counter++;
-                break;
-            }
-            else{
-                Date day = new Date();
-                long mills_now = day.getTime();
-                long mills_more_than;// = a_word.get_timing() + (a_word.get_status() - 4)*24*60*60*1000;
+            if (!is_in_pool(a_word)) {
 
-                switch (a_word.get_status()){
-                    case 5:
-                        mills_more_than = a_word.get_timing() + 60*60*1000;
-                        break;
-                    case 6:
-                        mills_more_than = a_word.get_timing() + 6*60*60*1000;
-                        break;
-                    case 7:
-                        mills_more_than = a_word.get_timing() + 12*60*60*1000;
-                        break;
-                    case 8:
-                        mills_more_than = a_word.get_timing() + 24*60*60*1000;
-                        break;
-                    case 9:
-                        mills_more_than = a_word.get_timing() + 3*24*60*60*1000;
-                        break;
-                    case 10:
-                        mills_more_than = a_word.get_timing() + 5*24*60*60*1000;
-                        break;
-                    default:
-                        mills_more_than = a_word.get_timing() + 7*24*60*60*1000;
-                }
-
-                if (mills_now > mills_more_than){
+                if (a_word.get_status() < 5) {
                     id_counter++;
                     break;
                 }
-            }
 
+                if (a_word.get_status() > 4) {
+                    Date day = new Date();
+                    long mills_now = day.getTime();
+                    long mills_more_than;// = a_word.get_timing() + (a_word.get_status() - 4)*24*60*60*1000;
+
+                    switch (a_word.get_status()) {
+                        case 5:
+                            mills_more_than = a_word.get_timing() + 60 * 60 * 1000;         //hour
+                            break;
+                        case 6:
+                            mills_more_than = a_word.get_timing() + 6 * 60 * 60 * 1000;       // 6 hours
+                            break;
+                        case 7:
+                            mills_more_than = a_word.get_timing() + 12 * 60 * 60 * 1000;      //12 hours
+                            break;
+                        case 8:
+                            mills_more_than = a_word.get_timing() + 24 * 60 * 60 * 1000;      //24 hours
+                            break;
+                        case 9:
+                            mills_more_than = a_word.get_timing() + 3 * 24 * 60 * 60 * 1000;    //3 days
+                            break;
+                        case 10:
+                            mills_more_than = a_word.get_timing() + 5 * 24 * 60 * 60 * 1000;    //5 days
+                            break;
+                        default:
+                            mills_more_than = a_word.get_timing() + 7 * 24 * 60 * 60 * 1000;    //7 days
+                    }
+
+                    if (mills_now > mills_more_than) {
+                        id_counter++;
+                        break;
+                    }
+                }
+            }
             id_counter++;
         }
-        return a_word;
+
+        if (a_word == null){
+            System.out.println("null");
+            return a_word;
+        }
+        else {
+//            System.out.println(a_word.get_id());
+            return a_word;
+        }
+
+    }
+
+    private boolean is_in_pool(word a_word) {
+
+        for (int i = 0; i<words_list.size(); i++){
+            if (words_list.get(i) == null){
+                //return false;
+                continue;
+            }
+            if (a_word.get_id() == words_list.get(i).get_id()){
+                return true;
+            }
+        }
+        return false;
     }
 
 
@@ -175,29 +218,62 @@ public class QueryActivity extends Activity implements View.OnClickListener, Vie
     }
 
 
-    public void show_word(){
+    public void show_word() {
+
         int randomNum;
-        while(true){
-            randomNum = ThreadLocalRandom.current().nextInt(0, 9 + 1);
-            if (current_word_id != words[randomNum].get_id())               //The same word won't be shown for the second time
+        while (true) {
+            int index = words_list.size();
+
+            randomNum = ThreadLocalRandom.current().nextInt(0, words_list.size());
+
+            if (words_list.get(randomNum) == null) {
+                //go_backward
+                int random_num_copy = randomNum;
+                while (randomNum >= 0 && words_list.get(randomNum) == null) {
+                    randomNum--;
+                }
+                if (randomNum == -1) {
+                    randomNum = random_num_copy;
+                }
+                while (randomNum < words_list.size() && words_list.get(randomNum) == null) {
+                    randomNum = ++random_num_copy;
+                }
+                if (randomNum == words_list.size()) {
+                    randomNum--;
+                }
+                if (words_list.get(randomNum) == null) {
+                    tv_answer.setText("!!!!!!!!!!!!!!");
+                    finish = true;
+                    break;
+                }
+
+            }
+
+//            if (current_word_id != words[randomNum].get_id())               //The same word won't be shown for the second time
+            if (current_word_id != words_list.get(randomNum).get_id())               //The same word won't be shown for the second time
                 break;
 //            else System.out.println("gotcha!");
         }
 
-        tv_question.setText(words[randomNum].get_question(question));
-        tv_answer.setText("");
+        if (!finish) {
+            //        tv_question.setText(words[randomNum].get_question(question));
+            tv_question.setText(words_list.get(randomNum).get_question(question));
+            tv_answer.setText("");
 
-        if (words[randomNum].get_status() == 1){
-            tv_counter.setText(Integer.toString(words[randomNum].get_status()) + " correct answer in a row");
-//            tv_counter.setText(Integer.toString(words[randomNum].get_wrong_count()) + " correct answer in a row");
-        }
-        else{
-            tv_counter.setText(Integer.toString(words[randomNum].get_status()) + " correct answers in a row");
-        }
+            //        if (words[randomNum].get_status() == 1){
+            if (words_list.get(randomNum).get_status() == 1) {
+                //            tv_counter.setText(Integer.toString(words[randomNum].get_status()) + " correct answer in a row");
+                tv_counter.setText(Integer.toString(words_list.get(randomNum).get_status()) + " correct answer in a row");
+                //            tv_counter.setText(Integer.toString(words[randomNum].get_wrong_count()) + " correct answer in a row");
+            } else {
+                //            tv_counter.setText(Integer.toString(words[randomNum].get_status()) + " correct answers in a row");
+                tv_counter.setText(Integer.toString(words_list.get(randomNum).get_status()) + " correct answers in a row");
+            }
 
-        current_word_id = words[randomNum].get_id();
+            //        current_word_id = words[randomNum].get_id();
+            current_word_id = words_list.get(randomNum).get_id();
+        }
     }
-
 
     public void onRadioButtonClicked(View v){}
 
@@ -206,10 +282,15 @@ public class QueryActivity extends Activity implements View.OnClickListener, Vie
     public void onClick(View v) {
 
         word current_word = null;
-        for (int i = 0; i<words.length; i++){
-            if (current_word_id == words[i].get_id()) {
-                current_word = words[i];
-                break;
+//        for (int i = 0; i<words.length; i++){
+        for (int i = 0; i<words_list.size(); i++){
+//            if (current_word_id == words[i].get_id()) {
+            if (words_list.get(i)!=null){
+                if (current_word_id == words_list.get(i).get_id()) {
+    //                current_word = words[i];
+                    current_word = words_list.get(i);
+                    break;
+                }
             }
         }
 
@@ -266,14 +347,20 @@ public class QueryActivity extends Activity implements View.OnClickListener, Vie
                 current_word.increment_status();
                 current_word.increment_right_count();
 
-                if (current_word.get_status()>=5){
-                    current_word.set_timing();
-                    update_word(current_word.get_id(), current_word.get_timing(), current_word.get_status(),
-                                current_word.get_right_count(), current_word.get_wrong_count());
-                    int ind = current_word.get_array_ind();
-                    words[current_word.get_array_ind()] = get_word(100);
-                    words[current_word.get_array_ind()].set_array_ind(ind);
+                current_word.set_timing();
+                update_word(current_word.get_id(), current_word.get_timing(), current_word.get_status(),
+                            current_word.get_right_count(), current_word.get_wrong_count());
 
+                if (current_word.get_status()>=5){
+                    int ind = current_word.get_array_ind();
+//                    words[current_word.get_array_ind()] = get_word(1);
+                    word transit_word = get_word(1);
+                    words_list.set(current_word.get_array_ind(), transit_word);
+//                    words[current_word.get_array_ind()].set_array_ind(ind);
+                    if (transit_word != null) {
+//                        word the = words_list.get(current_word.get_array_ind());
+                        words_list.get(current_word.get_array_ind()).set_array_ind(ind);
+                    }
                 }
 
                 if(tv_question.getText().toString().equals(current_word.get_de())){
@@ -287,7 +374,7 @@ public class QueryActivity extends Activity implements View.OnClickListener, Vie
 
                 timer = new Timer();
                 mTimerTask = new MyTimerTask();
-                timer.schedule(mTimerTask, 1000);
+                timer.schedule(mTimerTask, 10);
                 break;
         }
 
